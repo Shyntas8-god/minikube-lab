@@ -7,23 +7,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Start minikube
-      uses: medyagh/setup-minikube@master
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@master
 
-    - name: Check cluster
-      run: kubectl get pods -A
+      - name: Check cluster
+        run: kubectl get pods -A
 
-    - name: Build image
-      run: |
-        eval $(minikube docker-env)
-        docker build -t devopshint/node-app:latest .
+      - name: Build Docker image
+        run: |
+          eval $(minikube docker-env)
+          docker build -t nodejs-app:latest .
 
-    - name: Deploy
-      run: kubectl apply -f k8s-node-app.yaml
+      - name: Deploy to Kubernetes
+        run: kubectl apply -f k8s-node-app.yaml
 
-    - name: Test
-      run: |
-        minikube service list
-        minikube service nodejs-app --url
+      - name: Wait for pod
+        run: kubectl wait --for=condition=ready pod -l app=nodejs-app --timeout=120s
+
+      - name: Debug
+        run: |
+          echo "=== PODS ==="
+          kubectl get pods -o wide
+
+          echo "=== DESCRIBE ==="
+          kubectl describe pods -l app=nodejs-app
+
+          echo "=== LOGS ==="
+          kubectl logs -l app=nodejs-app || true
+
+      - name: Test service
+        run: |
+          minikube service list
+          minikube service nodejs-app --url
